@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useActionState } from "react";
 import Modal from "./UI/Modal";
 import CartContext from "../store/CartContext";
 import Input from "./UI/Input";
@@ -18,9 +18,9 @@ export default function Checkout() {
   const userProgressCtx = useContext(UserProgressContext);
   const {
     data,
-    isLoading: isSending,
     error,
     sendRequest,
+    clearData,
   } = useHttp("http://localhost3000/orders", requestConfig);
 
   const cartTotal = cartCtx.items.reduce(
@@ -31,14 +31,17 @@ export default function Checkout() {
   function handleClose() {
     userProgressCtx.hideCheckout();
   }
+  
+  function handleFinish(){
+    userProgressCtx.hideCheckout();
+    //cartCtx.clearCart();
+    clearData();
+  }
 
-  function handleSubmit(event) {
-    event.preventDefault();
-
-    const fd = new FormData(event.target);
+  async function checkoutAction(fd) {
     const customerData = Object.fromEntries(fd.entries());
 
-    sendRequest(
+    await sendRequest(
       JSON.stringify({
         order: {
           items: cartCtx.items,
@@ -47,6 +50,8 @@ export default function Checkout() {
       })
     );
   }
+
+  const [formState,formAction,isSending] = useActionState(checkoutAction,null);
 
   let actions = (
     <>
@@ -60,9 +65,19 @@ export default function Checkout() {
     actions = <span>Sending order data...</span>
   }
 
+  if(data && !error){
+    return <Modal open={userProgressCtx.progress === 'checkout'} onClose={handleClose}>
+      <h2>Success !</h2>
+      <p>Your order was submitted successfully</p>
+      <p className="modal-actions">
+        <Button onClick={handleClose}>Okay</Button>
+      </p>
+    </Modal>
+  }
+
   return (
     <Modal open={userProgressCtx.progress === "checkout"}>
-      <form onSubmit={handleSubmit}>
+      <form action={formAction}>
         <h2>Checkout</h2>
         <p>Total Amount: {cartTotal} </p>
         <Input label="Full Name" type="text" id="name" />
